@@ -280,6 +280,9 @@ export default function MCPTool({
                           <AccordionPrimitive.Trigger asChild>
                             <button
                               type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
                               className={cn(
                                 'flex h-7 w-7 items-center justify-center rounded transition-colors duration-200',
                                 'hover:bg-gray-200 dark:hover:bg-gray-700',
