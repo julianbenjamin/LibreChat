@@ -43,7 +43,8 @@ export default function MCPTool({
   const { showToast } = useToastContext();
   const updateUserPlugins = useUpdateUserPluginsMutation();
   const { getValues, setValue } = useFormContext<AgentForm>();
-  const { getServerStatusIconProps, getConfigDialogProps } = useMCPServerManager();
+  const { getServerStatusIconProps, getConfigDialogProps, initializeServer } =
+    useMCPServerManager();
 
   if (!allTools) {
     return null;
@@ -201,41 +202,44 @@ export default function MCPTool({
             }}
           >
             <AccordionPrimitive.Header asChild>
-              <AccordionPrimitive.Trigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'flex grow items-center gap-1 rounded bg-transparent p-0 text-left transition-colors',
-                    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                  )}
-                >
-                  {statusIcon && <div className="flex items-center">{statusIcon}</div>}
+              <button
+                type="button"
+                className={cn(
+                  'flex grow cursor-pointer items-center gap-1 rounded bg-transparent p-0 text-left transition-colors',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                )}
+                onClick={() => initializeServer(currentTool.metadata.name)}
+              >
+                {statusIcon && <div className="flex items-center">{statusIcon}</div>}
 
-                  {currentTool.metadata.icon && (
-                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full">
-                      <div
-                        className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-center bg-no-repeat dark:bg-white/20"
-                        style={{
-                          backgroundImage: `url(${currentTool.metadata.icon})`,
-                          backgroundSize: 'cover',
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div
-                    className="grow px-2 py-1.5"
-                    style={{ textOverflow: 'ellipsis', wordBreak: 'break-all', overflow: 'hidden' }}
-                  >
-                    {currentTool.metadata.name}
+                {currentTool.metadata.icon && (
+                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full">
+                    <div
+                      className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-center bg-no-repeat dark:bg-white/20"
+                      style={{
+                        backgroundImage: `url(${currentTool.metadata.icon})`,
+                        backgroundSize: 'cover',
+                      }}
+                    />
                   </div>
-                  <div className="flex items-center">
-                    <div className="relative flex items-center">
-                      <div
-                        className={cn(
-                          'flex items-center gap-2 transition-all duration-300',
-                          isHovering || isFocused ? '-translate-x-8' : 'translate-x-0',
-                        )}
-                      >
+                )}
+                <div
+                  className="grow px-2 py-1.5"
+                  style={{ textOverflow: 'ellipsis', wordBreak: 'break-all', overflow: 'hidden' }}
+                >
+                  {currentTool.metadata.name}
+                </div>
+                <div className="flex items-center">
+                  <div className="relative flex items-center">
+                    <div
+                      className={cn(
+                        'absolute right-0 transition-all duration-300',
+                        isHovering || isFocused
+                          ? 'translate-x-0 opacity-100'
+                          : 'translate-x-8 opacity-0',
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
                         {!isFallback && (
                           <div
                             data-checkbox-container
@@ -271,47 +275,54 @@ export default function MCPTool({
                           </div>
                         )}
 
-                        <div
-                          className={cn(
-                            'pointer-events-none flex h-4 w-4 items-center justify-center transition-transform duration-300',
-                            isExpanded ? 'rotate-180' : '',
-                          )}
-                          aria-hidden="true"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </div>
-                      </div>
+                        <div className="flex items-center gap-1">
+                          {/* Caret button for accordion */}
+                          <AccordionPrimitive.Trigger asChild>
+                            <button
+                              type="button"
+                              className={cn(
+                                'flex h-7 w-7 items-center justify-center rounded transition-colors duration-200',
+                                'hover:bg-gray-200 dark:hover:bg-gray-700',
+                                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                                'focus:translate-x-0 focus:opacity-100',
+                                isExpanded && 'bg-gray-200 dark:bg-gray-700',
+                              )}
+                              aria-hidden="true"
+                              tabIndex={0}
+                              onFocus={() => setIsFocused(true)}
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  'h-4 w-4 transition-transform duration-200',
+                                  isExpanded && 'rotate-180',
+                                )}
+                              />
+                            </button>
+                          </AccordionPrimitive.Trigger>
 
-                      <div
-                        className={cn(
-                          'absolute right-0 transition-all duration-300',
-                          isHovering || isFocused
-                            ? 'translate-x-0 opacity-100'
-                            : 'translate-x-8 opacity-0',
-                        )}
-                      >
-                        <OGDialogTrigger asChild>
-                          <button
-                            type="button"
-                            className={cn(
-                              'flex h-7 w-7 items-center justify-center rounded transition-colors duration-200',
-                              'hover:bg-gray-200 dark:hover:bg-gray-700',
-                              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                              'focus:translate-x-0 focus:opacity-100',
-                            )}
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label={`Delete ${currentTool.metadata.name}`}
-                            tabIndex={0}
-                            onFocus={() => setIsFocused(true)}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </OGDialogTrigger>
+                          <OGDialogTrigger asChild>
+                            <button
+                              type="button"
+                              className={cn(
+                                'flex h-7 w-7 items-center justify-center rounded transition-colors duration-200',
+                                'hover:bg-gray-200 dark:hover:bg-gray-700',
+                                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                                'focus:translate-x-0 focus:opacity-100',
+                              )}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Delete ${currentTool.metadata.name}`}
+                              tabIndex={0}
+                              onFocus={() => setIsFocused(true)}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </OGDialogTrigger>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </button>
-              </AccordionPrimitive.Trigger>
+                </div>
+              </button>
             </AccordionPrimitive.Header>
           </div>
 
