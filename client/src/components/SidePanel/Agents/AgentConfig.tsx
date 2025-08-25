@@ -15,8 +15,10 @@ import {
 import { ToolSelectDialog, MCPToolSelectDialog } from '~/components/Tools';
 import useAgentCapabilities from '~/hooks/Agents/useAgentCapabilities';
 import { useFileMapContext, useAgentPanelContext } from '~/Providers';
+import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 import AgentCategorySelector from './AgentCategorySelector';
 import Action from '~/components/SidePanel/Builder/Action';
+import UninitializedMCPTool from './UninitializedMCPTool';
 import { useGetStartupConfig } from '~/data-provider';
 import { useGetAgentFiles } from '~/data-provider';
 import { icons } from '~/hooks/Endpoint/Icons';
@@ -56,6 +58,8 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
     groupedTools: allTools,
     groupedMCPTools: allMCPTools,
   } = useAgentPanelContext();
+
+  const { connectionStatus } = useMCPServerManager();
 
   const {
     control,
@@ -470,8 +474,6 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
               <div>
                 <div className="mb-1">
                   {finalMCPTools.map(([toolId, toolObj], i) => {
-                    const isFallback = !allMCPTools?.[toolId as string];
-
                     const fallbackTools = allMCPTools?.[toolId as string]
                       ? allMCPTools
                       : {
@@ -479,13 +481,27 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
                           [toolId]: toolObj,
                         };
 
+                    const serverName = toolObj?.metadata?.name;
+                    const isConnected =
+                      serverName && connectionStatus[serverName]?.connectionState === 'connected';
+
+                    if (isConnected) {
+                      return (
+                        <MCPTool
+                          key={`${toolId as string}-${i}-${agent_id}`}
+                          tool={toolId as string}
+                          allTools={fallbackTools}
+                          agent_id={agent_id}
+                        />
+                      );
+                    }
+
                     return (
-                      <MCPTool
+                      <UninitializedMCPTool
                         key={`${toolId as string}-${i}-${agent_id}`}
                         tool={toolId as string}
                         allTools={fallbackTools}
                         agent_id={agent_id}
-                        isFallback={isFallback}
                       />
                     );
                   })}
