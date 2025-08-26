@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { ChevronDown } from 'lucide-react';
 import { useFormContext } from 'react-hook-form';
+import { Constants } from 'librechat-data-provider';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { useUpdateUserPluginsMutation } from 'librechat-data-provider/react-query';
 import {
@@ -71,21 +72,21 @@ export default function MCPTool({
 
   const removeTool = (toolId: string) => {
     if (toolId) {
-      const toolIdsToRemove =
-        isGroup && currentTool.tools
-          ? [toolId, ...currentTool.tools.map((t) => t.tool_id)]
-          : [toolId];
-
+      const mcpToolId = `${toolId}${Constants.mcp_delimiter}${toolId}`;
+      const groupObj = currentTool;
+      const toolIdsToRemove = [mcpToolId];
+      if (groupObj?.tools && groupObj.tools.length > 0) {
+        toolIdsToRemove.push(...groupObj.tools.map((sub) => sub.tool_id));
+      }
       updateUserPlugins.mutate(
-        { pluginKey: toolId, action: 'uninstall', auth: {}, isEntityTool: true },
+        { pluginKey: mcpToolId, action: 'uninstall', auth: {}, isEntityTool: true },
         {
           onError: (error: unknown) => {
             showToast({ message: `Error while deleting the tool: ${error}`, status: 'error' });
           },
           onSuccess: () => {
-            const remainingToolIds = getValues('tools')?.filter(
-              (toolId: string) => !toolIdsToRemove.includes(toolId),
-            );
+            const remainingToolIds =
+              getValues('tools')?.filter((toolId) => !toolIdsToRemove.includes(toolId)) || [];
             setValue('tools', remainingToolIds);
             showToast({ message: 'Tool deleted successfully', status: 'success' });
           },

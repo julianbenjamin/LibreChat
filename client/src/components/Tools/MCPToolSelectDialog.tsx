@@ -135,13 +135,21 @@ function MCPToolSelectDialog({
   const onRemoveTool = (serverName: string) => {
     const toolId = `${serverName}${Constants.mcp_delimiter}${serverName}`;
 
+    const toolIdsToRemove = [toolId];
+
+    const currentTools = getValues('tools') || [];
+    currentTools.forEach((tool) => {
+      if (tool.includes(`${Constants.mcp_delimiter}${serverName}`)) {
+        toolIdsToRemove.push(tool);
+      }
+    });
+
     updateUserPlugins.mutate(
       { pluginKey: toolId, action: 'uninstall', auth: {}, isEntityTool: true },
       {
         onError: (error: unknown) => handleInstallError(error as TError),
         onSuccess: () => {
-          const currentTools = getValues('tools') || [];
-          const remainingTools = currentTools.filter((tool) => tool !== toolId);
+          const remainingTools = currentTools.filter((tool) => !toolIdsToRemove.includes(tool));
           setValue('tools', remainingTools);
         },
       },

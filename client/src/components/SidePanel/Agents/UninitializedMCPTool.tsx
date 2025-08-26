@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { Constants } from 'librechat-data-provider';
 import { useUpdateUserPluginsMutation } from 'librechat-data-provider/react-query';
 import {
   TrashIcon,
@@ -38,12 +39,14 @@ export default function UninitializedMCPTool({
 
   const removeTool = (toolId: string) => {
     if (toolId) {
-      const toolIdsToRemove = currentTool.tools
-        ? [toolId, ...currentTool.tools.map((t) => t.tool_id)]
-        : [toolId];
-
+      const mcpToolId = `${toolId}${Constants.mcp_delimiter}${toolId}`;
+      const groupObj = currentTool;
+      const toolIdsToRemove = [mcpToolId];
+      if (groupObj?.tools && groupObj.tools.length > 0) {
+        toolIdsToRemove.push(...groupObj.tools.map((sub) => sub.tool_id));
+      }
       updateUserPlugins.mutate(
-        { pluginKey: toolId, action: 'uninstall', auth: {}, isEntityTool: true },
+        { pluginKey: mcpToolId, action: 'uninstall', auth: {}, isEntityTool: true },
         {
           onError: (error: unknown) => {
             showToast({
@@ -52,9 +55,8 @@ export default function UninitializedMCPTool({
             });
           },
           onSuccess: () => {
-            const remainingToolIds = getValues('tools')?.filter(
-              (toolId: string) => !toolIdsToRemove.includes(toolId),
-            );
+            const remainingToolIds =
+              getValues('tools')?.filter((toolId) => !toolIdsToRemove.includes(toolId)) || [];
             setValue('tools', remainingToolIds);
             showToast({ message: localize('com_ui_delete_tool_success'), status: 'success' });
           },
