@@ -466,14 +466,20 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
             allMCPToolsToShow.set(toolId, toolObj);
           });
 
-          const finalMCPTools = Array.from(allMCPToolsToShow.entries());
+          const finalMCPTools = Array.from(allMCPToolsToShow.entries()).sort(
+            ([, toolObjA], [, toolObjB]) => {
+              const nameA = toolObjA?.metadata?.name || '';
+              const nameB = toolObjB?.metadata?.name || '';
+              return nameA.localeCompare(nameB);
+            },
+          );
 
           return (
             <div className="mb-4">
               <label className={labelClass}>{localize('com_ui_mcp_servers')}</label>
               <div>
                 <div className="mb-1">
-                  {finalMCPTools.map(([toolId, toolObj], i) => {
+                  {finalMCPTools.map(([toolId, toolObj]) => {
                     const fallbackTools = allMCPTools?.[toolId as string]
                       ? allMCPTools
                       : {
