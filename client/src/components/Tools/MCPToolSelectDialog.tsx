@@ -10,7 +10,7 @@ import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 import { useLocalize, usePluginDialogHelpers } from '~/hooks';
 import { PluginPagination } from '~/components/Plugins/Store';
 import { EModelEndpoint } from 'librechat-data-provider';
-import { useGetStartupConfig } from '~/data-provider';
+import { useGetStartupConfig, useAvailableToolsQuery } from '~/data-provider';
 import { Constants } from 'librechat-data-provider';
 import MCPToolItem from './MCPToolItem';
 
@@ -24,6 +24,7 @@ function MCPToolSelectDialog({
   const localize = useLocalize();
   const { configuredServers, connectionStatus, initializeServer } = useMCPServerManager();
   const { data: startupConfig } = useGetStartupConfig();
+  const { data: availableTools } = useAvailableToolsQuery(EModelEndpoint.agents);
 
   const [configuringServer, setConfiguringServer] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<string | null>(null);
@@ -84,8 +85,19 @@ function MCPToolSelectDialog({
           },
           onSuccess: () => {
             const currentTools = getValues('tools') || [];
-            if (!currentTools.includes(toolId)) {
-              setValue('tools', [...currentTools, toolId]);
+            const toolsToAdd = [toolId];
+
+            if (availableTools) {
+              availableTools.forEach((tool) => {
+                if (tool.pluginKey.includes(`${Constants.mcp_delimiter}${serverName}`)) {
+                  toolsToAdd.push(tool.pluginKey);
+                }
+              });
+            }
+
+            const newTools = toolsToAdd.filter((tool) => !currentTools.includes(tool));
+            if (newTools.length > 0) {
+              setValue('tools', [...currentTools, ...newTools]);
             }
           },
         },
