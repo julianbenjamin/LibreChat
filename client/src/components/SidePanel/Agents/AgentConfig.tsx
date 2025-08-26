@@ -488,7 +488,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
                     if (isConnected) {
                       return (
                         <MCPTool
-                          key={`${toolId as string}-${i}-${agent_id}`}
+                          key={`${toolId as string}-${agent_id}`}
                           tool={toolId as string}
                           allTools={fallbackTools}
                           agent_id={agent_id}
@@ -498,7 +498,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
 
                     return (
                       <UninitializedMCPTool
-                        key={`${toolId as string}-${i}-${agent_id}`}
+                        key={`${toolId as string}-${agent_id}`}
                         tool={toolId as string}
                         allTools={fallbackTools}
                         agent_id={agent_id}
