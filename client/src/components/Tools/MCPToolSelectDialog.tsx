@@ -116,8 +116,8 @@ function MCPToolSelectDialog({
 
   const onAddTool = async (serverName: string) => {
     if (configuringServer === serverName) {
-      await handleDirectAdd(serverName);
       setConfiguringServer(null);
+      await handleDirectAdd(serverName);
       return;
     }
 
