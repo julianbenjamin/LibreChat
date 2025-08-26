@@ -1,29 +1,32 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 import { useFormContext } from 'react-hook-form';
 import { Dialog, DialogPanel, DialogTitle, Description } from '@headlessui/react';
 import { useUpdateUserPluginsMutation } from 'librechat-data-provider/react-query';
-import type { EModelEndpoint, TPluginAction, AgentToolType, TError } from 'librechat-data-provider';
 import type { AgentForm, TPluginStoreDialogProps } from '~/common';
-import { PluginPagination, PluginAuthForm } from '~/components/Plugins/Store';
-import { useAgentPanelContext } from '~/Providers/AgentPanelContext';
+import type { TError } from 'librechat-data-provider';
+import CustomUserVarsSection from '~/components/MCP/CustomUserVarsSection';
+import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 import { useLocalize, usePluginDialogHelpers } from '~/hooks';
-import { useAvailableToolsQuery } from '~/data-provider';
-import ToolItem from './ToolItem';
-
-type GroupedToolType = AgentToolType & { tools?: AgentToolType[] };
+import { PluginPagination } from '~/components/Plugins/Store';
+import { EModelEndpoint } from 'librechat-data-provider';
+import { useGetStartupConfig } from '~/data-provider';
+import { Constants } from 'librechat-data-provider';
+import MCPToolItem from './MCPToolItem';
 
 function MCPToolSelectDialog({
   isOpen,
-  endpoint,
   setIsOpen,
 }: TPluginStoreDialogProps & {
   endpoint: EModelEndpoint.agents;
 }) {
-  const { groupedMCPTools } = useAgentPanelContext();
   const { getValues, setValue } = useFormContext<AgentForm>();
-  const { data: tools } = useAvailableToolsQuery(endpoint);
   const localize = useLocalize();
+  const { configuredServers, connectionStatus, initializeServer } = useMCPServerManager();
+  const { data: startupConfig } = useGetStartupConfig();
+
+  const [configuringServer, setConfiguringServer] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState<string | null>(null);
 
   const {
     maxPage,
@@ -42,13 +45,10 @@ function MCPToolSelectDialog({
     setError,
     errorMessage,
     setErrorMessage,
-    showPluginAuthForm,
-    setShowPluginAuthForm,
-    selectedPlugin,
-    setSelectedPlugin,
   } = usePluginDialogHelpers();
 
   const updateUserPlugins = useUpdateUserPluginsMutation();
+
   const handleInstallError = (error: TError) => {
     setError(true);
     const errorMessage = error.response?.data?.message ?? '';
@@ -61,95 +61,113 @@ function MCPToolSelectDialog({
     }, 5000);
   };
 
-  const handleInstall = (pluginAction: TPluginAction) => {
-    const addFunction = () => {
-      const installedToolIds: string[] = getValues('tools') || [];
-      // Add the parent
-      installedToolIds.push(pluginAction.pluginKey);
-
-      // If this tool is a group, add subtools too
-      const groupObj = groupedMCPTools?.[pluginAction.pluginKey];
-      if (groupObj?.tools && groupObj.tools.length > 0) {
-        for (const sub of groupObj.tools) {
-          if (!installedToolIds.includes(sub.tool_id)) {
-            installedToolIds.push(sub.tool_id);
-          }
-        }
+  const handleDirectAdd = async (serverName: string) => {
+    setIsInitializing(serverName);
+    try {
+      const isConnected = connectionStatus[serverName]?.connectionState === 'connected';
+      if (!isConnected) {
+        await initializeServer(serverName);
       }
-      setValue('tools', Array.from(new Set(installedToolIds))); // no duplicates just in case
-    };
 
-    if (!pluginAction.auth) {
-      return addFunction();
+      const toolId = `${serverName}${Constants.mcp_delimiter}${serverName}`;
+
+      updateUserPlugins.mutate(
+        {
+          pluginKey: toolId,
+          action: 'install',
+          auth: {},
+          isEntityTool: true,
+        },
+        {
+          onError: (error: unknown) => {
+            handleInstallError(error as TError);
+          },
+          onSuccess: () => {
+            const currentTools = getValues('tools') || [];
+            if (!currentTools.includes(toolId)) {
+              setValue('tools', [...currentTools, toolId]);
+            }
+          },
+        },
+      );
+    } catch (error) {
+      console.error('Error adding MCP server:', error);
+    } finally {
+      setIsInitializing(null);
     }
-
-    updateUserPlugins.mutate(pluginAction, {
-      onError: (error: unknown) => {
-        handleInstallError(error as TError);
-      },
-      onSuccess: addFunction,
-    });
-
-    setShowPluginAuthForm(false);
   };
 
-  const onRemoveTool = (toolId: string) => {
-    const groupObj = groupedMCPTools?.[toolId];
-    const toolIdsToRemove = [toolId];
-    if (groupObj?.tools && groupObj.tools.length > 0) {
-      toolIdsToRemove.push(...groupObj.tools.map((sub) => sub.tool_id));
+  const handleSaveCustomVars = async (serverName: string, authData: Record<string, string>) => {
+    try {
+      await updateUserPlugins.mutateAsync({
+        pluginKey: `mcp_${serverName}`,
+        action: 'install',
+        auth: authData,
+        isEntityTool: true,
+      });
+
+      await handleDirectAdd(serverName);
+
+      setConfiguringServer(null);
+    } catch (error) {
+      console.error('Error saving custom vars:', error);
     }
-    // Remove these from the formTools
+  };
+
+  const onAddTool = async (serverName: string) => {
+    if (configuringServer === serverName) {
+      await handleDirectAdd(serverName);
+      setConfiguringServer(null);
+      return;
+    }
+
+    const serverConfig = startupConfig?.mcpServers?.[serverName];
+    const hasCustomUserVars =
+      serverConfig?.customUserVars && Object.keys(serverConfig.customUserVars).length > 0;
+
+    if (hasCustomUserVars) {
+      setConfiguringServer(serverName);
+    } else {
+      await handleDirectAdd(serverName);
+    }
+  };
+
+  const onRemoveTool = (serverName: string) => {
+    const toolId = `${serverName}${Constants.mcp_delimiter}${serverName}`;
+
     updateUserPlugins.mutate(
       { pluginKey: toolId, action: 'uninstall', auth: {}, isEntityTool: true },
       {
         onError: (error: unknown) => handleInstallError(error as TError),
         onSuccess: () => {
-          const remainingToolIds =
-            getValues('tools')?.filter((toolId) => !toolIdsToRemove.includes(toolId)) || [];
-          setValue('tools', remainingToolIds);
+          const currentTools = getValues('tools') || [];
+          const remainingTools = currentTools.filter((tool) => tool !== toolId);
+          setValue('tools', remainingTools);
         },
       },
     );
   };
 
-  const onAddTool = (pluginKey: string) => {
-    setShowPluginAuthForm(false);
-    const getAvailablePluginFromKey = tools?.find((p) => p.pluginKey === pluginKey);
-    setSelectedPlugin(getAvailablePluginFromKey);
-
-    // MCP tools have their variables configured elsewhere (e.g., MCPPanel or MCPSelect),
-    // so we directly proceed to install without showing the auth form.
-    handleInstall({ pluginKey, action: 'install', auth: {} });
-  };
-
-  const filteredTools = Object.values(groupedMCPTools || {}).filter((tool: GroupedToolType) => {
-    // Check if the parent tool matches
-    if (tool.metadata?.name?.toLowerCase().includes(searchValue.toLowerCase())) {
-      return true;
-    }
-    // Check if any child tools match
-    if (tool.tools) {
-      return tool.tools.some((childTool) =>
-        childTool.metadata?.name?.toLowerCase().includes(searchValue.toLowerCase()),
-      );
-    }
-    return false;
-  });
+  const filteredServers = useMemo(
+    () =>
+      configuredServers?.filter((serverName: string) => {
+        return serverName.toLowerCase().includes(searchValue.toLowerCase());
+      }) || [],
+    [configuredServers, searchValue],
+  );
 
   useEffect(() => {
-    if (filteredTools) {
-      setMaxPage(Math.ceil(Object.keys(filteredTools || {}).length / itemsPerPage));
+    if (filteredServers) {
+      setMaxPage(Math.ceil(filteredServers.length / itemsPerPage));
       if (searchChanged) {
         setCurrentPage(1);
         setSearchChanged(false);
       }
     }
   }, [
-    tools,
     itemsPerPage,
     searchValue,
-    filteredTools,
+    filteredServers,
     searchChanged,
     setMaxPage,
     setCurrentPage,
@@ -163,12 +181,12 @@ function MCPToolSelectDialog({
         setIsOpen(false);
         setCurrentPage(1);
         setSearchValue('');
+        setConfiguringServer(null);
+        setIsInitializing(null);
       }}
       className="relative z-[102]"
     >
-      {/* The backdrop, rendered as a fixed sibling to the panel container */}
       <div className="fixed inset-0 bg-surface-primary opacity-60 transition-opacity dark:opacity-80" />
-      {/* Full-screen container to center the panel */}
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
           className="relative max-h-[90vh] w-full transform overflow-hidden overflow-y-auto rounded-lg bg-surface-secondary text-left shadow-xl transition-all max-sm:h-full sm:mx-7 sm:my-8 sm:max-w-2xl lg:max-w-5xl xl:max-w-7xl"
@@ -186,21 +204,22 @@ function MCPToolSelectDialog({
               </div>
             </div>
             <div>
-              <div className="sm:mt-0">
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setCurrentPage(1);
-                  }}
-                  className="inline-block rounded-full text-text-secondary transition-colors hover:text-text-primary"
-                  aria-label="Close dialog"
-                  type="button"
-                >
-                  <X aria-hidden="true" />
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setCurrentPage(1);
+                  setConfiguringServer(null);
+                  setIsInitializing(null);
+                }}
+                className="inline-block rounded-full text-text-secondary transition-colors hover:text-text-primary"
+                aria-label="Close dialog"
+                type="button"
+              >
+                <X aria-hidden="true" />
+              </button>
             </div>
           </div>
+
           {error && (
             <div
               className="relative m-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
@@ -209,15 +228,24 @@ function MCPToolSelectDialog({
               {localize('com_nav_plugin_auth_error')} {errorMessage}
             </div>
           )}
-          {showPluginAuthForm && (
+
+          {configuringServer && (
             <div className="p-4 sm:p-6 sm:pt-4">
-              <PluginAuthForm
-                plugin={selectedPlugin}
-                onSubmit={(installActionData: TPluginAction) => handleInstall(installActionData)}
-                isEntityTool={true}
+              <div className="mb-4">
+                <p className="text-sm text-text-secondary">
+                  {localize('com_ui_mcp_configure_server_description', { 0: configuringServer })}
+                </p>
+              </div>
+              <CustomUserVarsSection
+                serverName={configuringServer}
+                fields={startupConfig?.mcpServers?.[configuringServer]?.customUserVars || {}}
+                onSave={(authData) => handleSaveCustomVars(configuringServer, authData)}
+                onRevoke={() => setConfiguringServer(null)}
+                isSubmitting={updateUserPlugins.isLoading}
               />
             </div>
           )}
+
           <div className="p-4 sm:p-6 sm:pt-4">
             <div className="mt-4 flex flex-col gap-4">
               <div className="flex items-center justify-center space-x-4">
@@ -230,31 +258,47 @@ function MCPToolSelectDialog({
                   className="w-64 rounded border border-border-medium bg-transparent px-2 py-1 text-text-primary focus:outline-none"
                 />
               </div>
+
               <div
                 ref={gridRef}
-                className="grid grid-cols-1 grid-rows-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                 style={{ minHeight: '410px' }}
               >
-                {filteredTools &&
-                  filteredTools
+                {filteredServers &&
+                  filteredServers
                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                    .map((tool, index) => {
+                    .map((serverName, index) => {
                       const formTools = getValues('tools') || [];
-                      const isInstalled =
-                        tool.tools?.some((subTool) => formTools.includes(subTool.tool_id)) || false;
+                      const toolId = `${serverName}${Constants.mcp_delimiter}${serverName}`;
+
+                      const isInstalled = formTools.includes(toolId);
+                      const isConfiguring = configuringServer === serverName;
+                      const isServerInitializing = isInitializing === serverName;
+
+                      const tool = {
+                        tool_id: toolId,
+                        metadata: {
+                          name: serverName,
+                          description: `${localize('com_ui_tool_collection_prefix')} ${serverName}`,
+                          icon: undefined,
+                        },
+                      };
 
                       return (
-                        <ToolItem
+                        <MCPToolItem
                           key={index}
                           tool={tool}
                           isInstalled={isInstalled}
-                          onAddTool={() => onAddTool(tool.tool_id)}
-                          onRemoveTool={() => onRemoveTool(tool.tool_id)}
+                          onAddTool={() => onAddTool(serverName)}
+                          onRemoveTool={() => onRemoveTool(serverName)}
+                          isConfiguring={isConfiguring}
+                          isInitializing={isServerInitializing}
                         />
                       );
                     })}
               </div>
             </div>
+
             <div className="mt-2 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
               {maxPage > 0 ? (
                 <PluginPagination
