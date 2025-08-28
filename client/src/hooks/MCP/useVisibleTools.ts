@@ -6,7 +6,7 @@ type GroupedToolsRecord = Record<string, GroupedToolType>;
 
 interface VisibleToolsResult {
   toolIds: string[];
-  mcpServerIds: string[];
+  mcpServerNames: string[];
 }
 
 /**
@@ -25,7 +25,7 @@ export function useVisibleTools(
 ): VisibleToolsResult {
   return useMemo(() => {
     const toolIds = selectedToolIds ?? [];
-    const mcpTools = new Set<string>();
+    const mcpServers = new Set<string>();
     const regularToolIds = new Set<string>();
 
     if (allTools) {
@@ -50,14 +50,14 @@ export function useVisibleTools(
     if (allMCPTools) {
       for (const [toolId, toolObj] of Object.entries(allMCPTools)) {
         if (toolIds.includes(toolId)) {
-          mcpTools.add(toolId);
+          mcpServers.add(toolId);
         }
 
         // Check if any subtool is selected
         if (toolObj.tools?.length) {
           for (const subtool of toolObj.tools) {
             if (toolIds.includes(subtool.tool_id)) {
-              mcpTools.add(toolId);
+              mcpServers.add(toolId);
               break;
             }
           }
@@ -67,7 +67,7 @@ export function useVisibleTools(
 
     return {
       toolIds: Array.from(regularToolIds),
-      mcpServerIds: Array.from(mcpTools),
+      mcpServerNames: Array.from(mcpServers),
     };
   }, [selectedToolIds, allTools, allMCPTools]);
 }

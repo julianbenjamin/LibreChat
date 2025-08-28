@@ -17,10 +17,10 @@ function MCPToolSelectDialog({
   isOpen,
   agentId,
   setIsOpen,
-  mcpServerIds,
+  mcpServerNames,
 }: TPluginStoreDialogProps & {
   agentId: string;
-  mcpServerIds?: string[];
+  mcpServerNames?: string[];
   endpoint: EModelEndpoint.agents;
 }) {
   const localize = useLocalize();
@@ -171,8 +171,8 @@ function MCPToolSelectDialog({
   };
 
   const installedToolsSet = useMemo(() => {
-    return new Set(mcpServerIds);
-  }, [mcpServerIds]);
+    return new Set(mcpServerNames);
+  }, [mcpServerNames]);
 
   const mcpServers = useMemo(() => {
     return Array.from(mcpServersMap.values());

@@ -8,10 +8,10 @@ import { useLocalize } from '~/hooks';
 import MCPTool from './MCPTool';
 
 export default function MCPTools({
-  mcpServerIds,
+  mcpServerNames,
   setShowMCPToolDialog,
 }: {
-  mcpServerIds?: string[];
+  mcpServerNames?: string[];
   setShowMCPToolDialog: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const localize = useLocalize();
@@ -29,7 +29,7 @@ export default function MCPTools({
       <div>
         <div className="mb-1">
           {/* Render servers with selected tools */}
-          {mcpServerIds?.map((formTool) => {
+          {mcpServerNames?.map((formTool) => {
             const serverInfo = mcpServersMap.get(formTool);
             if (!serverInfo) {
               return null;

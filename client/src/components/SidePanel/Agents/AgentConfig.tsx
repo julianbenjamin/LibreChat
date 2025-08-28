@@ -176,7 +176,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
     Icon = icons[iconKey];
   }
 
-  const { toolIds, mcpServerIds } = useVisibleTools(tools, allTools, allMCPTools);
+  const { toolIds, mcpServerNames } = useVisibleTools(tools, allTools, allMCPTools);
 
   return (
     <>
@@ -376,7 +376,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
           </div>
         </div>
         {/* MCP Section */}
-        <MCPTools mcpServerIds={mcpServerIds} setShowMCPToolDialog={setShowMCPToolDialog} />
+        <MCPTools mcpServerNames={mcpServerNames} setShowMCPToolDialog={setShowMCPToolDialog} />
         {/* Support Contact (Optional) */}
         <div className="mb-4">
           <div className="mb-1.5 flex items-center gap-2">
@@ -470,7 +470,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
       <MCPToolSelectDialog
         agentId={agent_id}
         isOpen={showMCPToolDialog}
-        mcpServerIds={mcpServerIds}
+        mcpServerNames={mcpServerNames}
         setIsOpen={setShowMCPToolDialog}
         endpoint={EModelEndpoint.agents}
       />
