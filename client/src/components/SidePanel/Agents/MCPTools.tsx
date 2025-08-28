@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useWatch, useFormContext } from 'react-hook-form';
 import type { AgentForm } from '~/common';
 import UninitializedMCPTool from './UninitializedMCPTool';
@@ -8,8 +8,10 @@ import { useLocalize } from '~/hooks';
 import MCPTool from './MCPTool';
 
 export default function MCPTools({
+  mcpServerIds,
   setShowMCPToolDialog,
 }: {
+  mcpServerIds?: string[];
   setShowMCPToolDialog: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const localize = useLocalize();
@@ -17,24 +19,7 @@ export default function MCPTools({
   const { groupedMCPTools: allMCPTools, mcpServersMap } = useAgentPanelContext();
 
   const { control } = methods;
-  const tools = useWatch({ control, name: 'tools' });
   const agent_id = useWatch({ control, name: 'id' });
-
-  // Filter servers that have selected tools
-  const relevantServers = useMemo(() => {
-    const selectedTools = tools ?? [];
-    const servers = new Map();
-
-    // Add all servers that have selected tools
-    mcpServersMap.forEach((serverInfo, serverKey) => {
-      const hasSelectedTool = serverInfo.tools.some((tool) => selectedTools.includes(tool.tool_id));
-      if (hasSelectedTool) {
-        servers.set(serverKey, serverInfo);
-      }
-    });
-
-    return servers;
-  }, [tools, mcpServersMap]);
 
   return (
     <div className="mb-4">
@@ -44,50 +29,52 @@ export default function MCPTools({
       <div>
         <div className="mb-1">
           {/* Render servers with selected tools */}
-          {Array.from(relevantServers.values())
-            .sort((a, b) => a.serverName.localeCompare(b.serverName))
-            .map((serverInfo) => {
-              const fallbackTools = allMCPTools?.[serverInfo.serverKey]
-                ? allMCPTools
-                : {
-                    ...allMCPTools,
-                    [serverInfo.serverKey]: {
-                      tool_id: serverInfo.serverKey,
-                      metadata: serverInfo.metadata,
-                      agent_id: agent_id || '',
-                      tools: serverInfo.tools,
-                    },
-                  };
+          {mcpServerIds?.map((formTool) => {
+            const serverInfo = mcpServersMap.get(formTool);
+            if (!serverInfo) {
+              return null;
+            }
+            const fallbackTools = allMCPTools?.[serverInfo.serverName]
+              ? allMCPTools
+              : {
+                  ...allMCPTools,
+                  [serverInfo.serverName]: {
+                    tool_id: serverInfo.serverName,
+                    metadata: serverInfo.metadata,
+                    agent_id: agent_id || '',
+                    tools: serverInfo.tools,
+                  },
+                };
 
-              if (!serverInfo.isConfigured) {
-                return (
-                  <UnconfiguredMCPTool
-                    key={`${serverInfo.serverKey}-${agent_id}`}
-                    tool={serverInfo.serverKey}
-                    allTools={fallbackTools}
-                  />
-                );
-              }
-
-              if (serverInfo.isConnected) {
-                return (
-                  <MCPTool
-                    key={`${serverInfo.serverKey}-${agent_id}`}
-                    tool={serverInfo.serverKey}
-                    allTools={fallbackTools}
-                    agent_id={agent_id}
-                  />
-                );
-              }
-
+            if (!serverInfo.isConfigured) {
               return (
-                <UninitializedMCPTool
-                  key={`${serverInfo.serverKey}-${agent_id}`}
-                  tool={serverInfo.serverKey}
+                <UnconfiguredMCPTool
+                  key={`${serverInfo.serverName}-${agent_id}`}
+                  tool={serverInfo.serverName}
                   allTools={fallbackTools}
                 />
               );
-            })}
+            }
+
+            if (serverInfo.isConnected) {
+              return (
+                <MCPTool
+                  key={`${serverInfo.serverName}-${agent_id}`}
+                  tool={serverInfo.serverName}
+                  allTools={fallbackTools}
+                  agent_id={agent_id}
+                />
+              );
+            }
+
+            return (
+              <UninitializedMCPTool
+                key={`${serverInfo.serverName}-${agent_id}`}
+                tool={serverInfo.serverName}
+                allTools={fallbackTools}
+              />
+            );
+          })}
         </div>
         <div className="mt-2">
           <button

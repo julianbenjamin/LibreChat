@@ -57,9 +57,7 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     const mcpServersMap = new Map<string, MCPServerInfo>();
 
     const configuredServers = new Set(
-      startupConfig?.mcpServers
-        ? Object.keys(startupConfig.mcpServers).map((s) => s.toLowerCase())
-        : [],
+      startupConfig?.mcpServers ? Object.keys(startupConfig.mcpServers) : [],
     );
 
     for (const pluginTool of pluginTools) {
@@ -73,39 +71,36 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
 
       if (tool.tool_id.includes(Constants.mcp_delimiter)) {
         const [_toolName, serverName] = tool.tool_id.split(Constants.mcp_delimiter);
-        const serverKey = serverName.toLowerCase();
 
         // Map tool to server for O(1) lookups
-        toolToServerMap.set(tool.tool_id, serverKey);
+        toolToServerMap.set(tool.tool_id, serverName);
 
-        if (!mcpServersMap.has(serverKey)) {
+        if (!mcpServersMap.has(serverName)) {
           const metadata = {
             name: serverName,
-            pluginKey: serverKey,
+            pluginKey: serverName,
             description: `${localize('com_ui_tool_collection_prefix')} ${serverName}`,
             icon: pluginTool.icon || '',
           } as TPlugin;
 
-          mcpServersMap.set(serverKey, {
+          mcpServersMap.set(serverName, {
             serverName,
-            serverKey,
             tools: [],
-            isConfigured: configuredServers.has(serverKey),
+            isConfigured: configuredServers.has(serverName),
             isConnected: connectionStatus[serverName]?.connectionState === 'connected',
             metadata,
           });
 
-          // Also add to groupedMCPTools for backward compatibility
-          groupedMCPTools[serverKey] = {
-            tool_id: serverKey,
+          groupedMCPTools[serverName] = {
+            tool_id: serverName,
             metadata,
             agent_id: agent_id || '',
             tools: [],
           };
         }
 
-        mcpServersMap.get(serverKey)!.tools.push(tool);
-        groupedMCPTools[serverKey].tools?.push(tool);
+        mcpServersMap.get(serverName)!.tools.push(tool);
+        groupedMCPTools[serverName].tools?.push(tool);
       } else {
         // Non-MCP tool
         groupedTools[tool.tool_id] = {
@@ -124,8 +119,6 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
       toolToServerMap,
     };
   }, [pluginTools, agent_id, localize, startupConfig?.mcpServers, connectionStatus]);
-
-  console.log({ processedData });
 
   const { agentsConfig, endpointsConfig } = useGetAgentsConfig();
 

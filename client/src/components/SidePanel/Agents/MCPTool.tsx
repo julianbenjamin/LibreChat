@@ -20,11 +20,11 @@ import {
 } from '@librechat/client';
 import type { AgentToolType } from 'librechat-data-provider';
 import type { AgentForm } from '~/common';
+import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
+import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
+import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
-import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
-import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
-import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 
 export default function MCPTool({
   tool,
@@ -42,8 +42,7 @@ export default function MCPTool({
   const { showToast } = useToastContext();
   const updateUserPlugins = useUpdateUserPluginsMutation();
   const { getValues, setValue } = useFormContext<AgentForm>();
-  const { getServerStatusIconProps, getConfigDialogProps, initializeServer } =
-    useMCPServerManager();
+  const { getServerStatusIconProps, getConfigDialogProps } = useMCPServerManager();
 
   if (!allTools) {
     return null;
@@ -70,29 +69,34 @@ export default function MCPTool({
   const serverName = currentTool.metadata.name;
   const isGroup = currentTool.tools && currentTool.tools.length > 0;
 
-  const removeTool = (toolId: string) => {
-    if (toolId) {
-      const mcpToolId = `${toolId}${Constants.mcp_delimiter}${toolId}`;
-      const groupObj = currentTool;
-      const toolIdsToRemove = [mcpToolId];
-      if (groupObj?.tools && groupObj.tools.length > 0) {
-        toolIdsToRemove.push(...groupObj.tools.map((sub) => sub.tool_id));
-      }
-      updateUserPlugins.mutate(
-        { pluginKey: mcpToolId, action: 'uninstall', auth: {}, isEntityTool: true },
-        {
-          onError: (error: unknown) => {
-            showToast({ message: `Error while deleting the tool: ${error}`, status: 'error' });
-          },
-          onSuccess: () => {
-            const remainingToolIds =
-              getValues('tools')?.filter((toolId) => !toolIdsToRemove.includes(toolId)) || [];
-            setValue('tools', remainingToolIds);
-            showToast({ message: 'Tool deleted successfully', status: 'success' });
-          },
-        },
-      );
+  const removeTool = (serverName: string) => {
+    if (!serverName) {
+      return;
     }
+    updateUserPlugins.mutate(
+      {
+        pluginKey: `${Constants.mcp_prefix}${serverName}`,
+        action: 'uninstall',
+        auth: {},
+        isEntityTool: true,
+      },
+      {
+        onError: (error: unknown) => {
+          showToast({ message: `Error while deleting the tool: ${error}`, status: 'error' });
+        },
+        onSuccess: () => {
+          const currentTools = getValues('tools');
+          const remainingToolIds =
+            currentTools?.filter(
+              (currentToolId) =>
+                currentToolId !== serverName &&
+                !currentToolId.endsWith(`${Constants.mcp_delimiter}${serverName}`),
+            ) || [];
+          setValue('tools', remainingToolIds);
+          showToast({ message: 'Tool deleted successfully', status: 'success' });
+        },
+      },
+    );
   };
 
   if (!currentTool) {
@@ -205,13 +209,16 @@ export default function MCPTool({
             }}
           >
             <AccordionPrimitive.Header asChild>
-              <button
-                type="button"
-                className={cn(
-                  'flex grow cursor-pointer items-center gap-1 rounded bg-transparent p-0 text-left transition-colors',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                )}
-                onClick={() => initializeServer(currentTool.metadata.name)}
+              <div
+                className="flex grow cursor-pointer select-none items-center gap-1 rounded bg-transparent p-0 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                onClick={() =>
+                  setAccordionValue((prev) => {
+                    if (prev) {
+                      return '';
+                    }
+                    return currentTool.tool_id;
+                  })
+                }
               >
                 {statusIcon && <div className="flex items-center">{statusIcon}</div>}
 
@@ -250,12 +257,15 @@ export default function MCPTool({
                         >
                           <Checkbox
                             id={`select-all-${currentTool.tool_id}`}
-                            checked={selectedTools.length === currentTool.tools?.length}
+                            checked={
+                              selectedTools.length === currentTool.tools?.length &&
+                              selectedTools.length > 0
+                            }
                             onCheckedChange={(checked) => {
                               if (currentTool.tools) {
                                 const newSelectedTools = checked
                                   ? currentTool.tools.map((t) => t.tool_id)
-                                  : [];
+                                  : [currentTool.tool_id];
                                 updateFormTools(newSelectedTools);
                               }
                             }}
@@ -326,7 +336,7 @@ export default function MCPTool({
                     </div>
                   </div>
                 </div>
-              </button>
+              </div>
             </AccordionPrimitive.Header>
           </div>
 

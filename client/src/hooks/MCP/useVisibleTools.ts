@@ -4,6 +4,11 @@ import type { AgentToolType } from 'librechat-data-provider';
 type GroupedToolType = AgentToolType & { tools?: AgentToolType[] };
 type GroupedToolsRecord = Record<string, GroupedToolType>;
 
+interface VisibleToolsResult {
+  toolIds: string[];
+  mcpServerIds: string[];
+}
+
 /**
  * Custom hook to calculate visible tool IDs based on selected tools and their parent groups.
  * If any subtool of a group is selected, the parent group tool is also made visible.
@@ -11,35 +16,58 @@ type GroupedToolsRecord = Record<string, GroupedToolType>;
  * @param selectedToolIds - Array of selected tool IDs
  * @param allTools - Record of all available tools
  * @param allMCPTools - Record of all MCP tools
- * @returns Set of visible tool IDs including parent groups
+ * @returns Object containing separate arrays of visible tool IDs for regular and MCP tools
  */
 export function useVisibleTools(
   selectedToolIds: string[] | undefined,
   allTools: GroupedToolsRecord | undefined,
   allMCPTools: GroupedToolsRecord | undefined,
-): Set<string> {
+): VisibleToolsResult {
   return useMemo(() => {
     const toolIds = selectedToolIds ?? [];
-    const visibleIds = new Set(toolIds);
+    const mcpTools = new Set<string>();
+    const regularToolIds = new Set<string>();
 
-    // Single pass through tools to add parent groups
-    const toolRecords = [
-      ...(allTools ? Object.entries(allTools) : []),
-      ...(allMCPTools ? Object.entries(allMCPTools) : []),
-    ];
+    if (allTools) {
+      for (const [toolId, toolObj] of Object.entries(allTools)) {
+        // Add if directly selected
+        if (toolIds.includes(toolId)) {
+          regularToolIds.add(toolId);
+        }
 
-    for (const [toolId, toolObj] of toolRecords) {
-      if (toolObj.tools?.length) {
         // Check if any subtool is selected
-        for (const subtool of toolObj.tools) {
-          if (toolIds.includes(subtool.tool_id)) {
-            visibleIds.add(toolId);
-            break; // No need to check other subtools once we find one
+        if (toolObj.tools?.length) {
+          for (const subtool of toolObj.tools) {
+            if (toolIds.includes(subtool.tool_id)) {
+              regularToolIds.add(toolId);
+              break;
+            }
           }
         }
       }
     }
 
-    return visibleIds;
+    if (allMCPTools) {
+      for (const [toolId, toolObj] of Object.entries(allMCPTools)) {
+        if (toolIds.includes(toolId)) {
+          mcpTools.add(toolId);
+        }
+
+        // Check if any subtool is selected
+        if (toolObj.tools?.length) {
+          for (const subtool of toolObj.tools) {
+            if (toolIds.includes(subtool.tool_id)) {
+              mcpTools.add(toolId);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      toolIds: Array.from(regularToolIds),
+      mcpServerIds: Array.from(mcpTools),
+    };
   }, [selectedToolIds, allTools, allMCPTools]);
 }
