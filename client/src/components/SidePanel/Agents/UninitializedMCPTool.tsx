@@ -16,6 +16,7 @@ import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
+import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
 
 export default function UninitializedMCPTool({
   tool,
@@ -30,7 +31,8 @@ export default function UninitializedMCPTool({
   const { showToast } = useToastContext();
   const updateUserPlugins = useUpdateUserPluginsMutation();
   const { getValues, setValue } = useFormContext<AgentForm>();
-  const { initializeServer, isInitializing, getServerStatusIconProps } = useMCPServerManager();
+  const { initializeServer, isInitializing, getServerStatusIconProps, getConfigDialogProps } =
+    useMCPServerManager();
 
   if (!allTools) {
     return null;
@@ -72,6 +74,7 @@ export default function UninitializedMCPTool({
   const serverName = currentTool.metadata.name;
   const isServerInitializing = isInitializing(serverName);
   const statusIconProps = getServerStatusIconProps(serverName);
+  const configDialogProps = getConfigDialogProps();
 
   const statusIcon = statusIconProps && (
     <div
@@ -162,6 +165,7 @@ export default function UninitializedMCPTool({
           selectText: localize('com_ui_delete'),
         }}
       />
+      {configDialogProps && <MCPConfigDialog {...configDialogProps} />}
     </OGDialog>
   );
 }
