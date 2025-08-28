@@ -24,7 +24,7 @@ function MCPToolSelectDialog({
   const localize = useLocalize();
   const { configuredServers, connectionStatus, initializeServer } = useMCPServerManager();
   const { data: startupConfig } = useGetStartupConfig();
-  const { data: availableTools } = useAvailableToolsQuery(EModelEndpoint.agents);
+  const { refetch: refetchAvailableTools } = useAvailableToolsQuery(EModelEndpoint.agents);
 
   const [configuringServer, setConfiguringServer] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<string | null>(null);
@@ -83,12 +83,14 @@ function MCPToolSelectDialog({
           onError: (error: unknown) => {
             handleInstallError(error as TError);
           },
-          onSuccess: () => {
+          onSuccess: async () => {
+            const { data: updatedAvailableTools } = await refetchAvailableTools();
+
             const currentTools = getValues('tools') || [];
             const toolsToAdd = [toolId];
 
-            if (availableTools) {
-              availableTools.forEach((tool) => {
+            if (updatedAvailableTools) {
+              updatedAvailableTools.forEach((tool) => {
                 if (tool.pluginKey.includes(`${Constants.mcp_delimiter}${serverName}`)) {
                   toolsToAdd.push(tool.pluginKey);
                 }
