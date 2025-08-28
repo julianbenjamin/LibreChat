@@ -216,6 +216,15 @@ export type AgentPanelProps = {
   agentsConfig?: t.TAgentsEndpoint | null;
 };
 
+export interface MCPServerInfo {
+  serverName: string;
+  serverKey: string;
+  tools: t.AgentToolType[];
+  isConfigured: boolean;
+  isConnected: boolean;
+  metadata: t.TPlugin;
+}
+
 export type AgentPanelContextType = {
   action?: t.Action;
   actions?: t.Action[];
@@ -233,6 +242,10 @@ export type AgentPanelContextType = {
   agent_id?: string;
   agentsConfig?: t.TAgentsEndpoint | null;
   endpointsConfig?: t.TEndpointsConfig | null;
+  /** Pre-computed MCP server information indexed by server key */
+  mcpServersMap: Map<string, MCPServerInfo>;
+  /** Tool ID to server key mapping for O(1) lookups */
+  toolToServerMap: Map<string, string>;
 };
 
 export type AgentModelPanelProps = {

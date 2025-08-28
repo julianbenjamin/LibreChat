@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import { Constants, EModelEndpoint } from 'librechat-data-provider';
 import type { MCP, Action, TPlugin, AgentToolType } from 'librechat-data-provider';
-import type { AgentPanelContextType } from '~/common';
-import { useAvailableToolsQuery, useGetActionsQuery } from '~/data-provider';
-import { useLocalize, useGetAgentsConfig } from '~/hooks';
+import type { AgentPanelContextType, MCPServerInfo } from '~/common';
+import { useAvailableToolsQuery, useGetActionsQuery, useGetStartupConfig } from '~/data-provider';
+import { useLocalize, useGetAgentsConfig, useMCPServerManager } from '~/hooks';
 import { Panel } from '~/common';
 
 type GroupedToolType = AgentToolType & { tools?: AgentToolType[] };
@@ -36,18 +36,31 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     enabled: !!agent_id,
   });
 
-  const { tools, groupedTools, groupedMCPTools } = useMemo(() => {
+  const { connectionStatus } = useMCPServerManager();
+  const { data: startupConfig } = useGetStartupConfig();
+
+  const processedData = useMemo(() => {
     if (!pluginTools) {
       return {
         tools: [],
         groupedTools: {},
         groupedMCPTools: {},
+        toolToServerMap: new Map<string, string>(),
+        mcpServersMap: new Map<string, MCPServerInfo>(),
       };
     }
 
     const tools: AgentToolType[] = [];
     const groupedTools: GroupedToolsRecord = {};
     const groupedMCPTools: GroupedToolsRecord = {};
+    const toolToServerMap = new Map<string, string>();
+    const mcpServersMap = new Map<string, MCPServerInfo>();
+
+    const configuredServers = new Set(
+      startupConfig?.mcpServers
+        ? Object.keys(startupConfig.mcpServers).map((s) => s.toLowerCase())
+        : [],
+    );
 
     for (const pluginTool of pluginTools) {
       const tool: AgentToolType = {
@@ -60,23 +73,41 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
 
       if (tool.tool_id.includes(Constants.mcp_delimiter)) {
         const [_toolName, serverName] = tool.tool_id.split(Constants.mcp_delimiter);
-        const groupKey = `${serverName.toLowerCase()}`;
+        const serverKey = serverName.toLowerCase();
 
-        if (!groupedMCPTools[groupKey]) {
-          groupedMCPTools[groupKey] = {
-            tool_id: groupKey,
-            metadata: {
-              name: `${serverName}`,
-              pluginKey: groupKey,
-              description: `${localize('com_ui_tool_collection_prefix')} ${serverName}`,
-              icon: pluginTool.icon || '',
-            } as TPlugin,
+        // Map tool to server for O(1) lookups
+        toolToServerMap.set(tool.tool_id, serverKey);
+
+        if (!mcpServersMap.has(serverKey)) {
+          const metadata = {
+            name: serverName,
+            pluginKey: serverKey,
+            description: `${localize('com_ui_tool_collection_prefix')} ${serverName}`,
+            icon: pluginTool.icon || '',
+          } as TPlugin;
+
+          mcpServersMap.set(serverKey, {
+            serverName,
+            serverKey,
+            tools: [],
+            isConfigured: configuredServers.has(serverKey),
+            isConnected: connectionStatus[serverName]?.connectionState === 'connected',
+            metadata,
+          });
+
+          // Also add to groupedMCPTools for backward compatibility
+          groupedMCPTools[serverKey] = {
+            tool_id: serverKey,
+            metadata,
             agent_id: agent_id || '',
             tools: [],
           };
         }
-        groupedMCPTools[groupKey].tools?.push(tool);
+
+        mcpServersMap.get(serverKey)!.tools.push(tool);
+        groupedMCPTools[serverKey].tools?.push(tool);
       } else {
+        // Non-MCP tool
         groupedTools[tool.tool_id] = {
           tool_id: tool.tool_id,
           metadata: tool.metadata,
@@ -85,16 +116,22 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
       }
     }
 
-    return { tools, groupedTools, groupedMCPTools };
-  }, [pluginTools, agent_id, localize]);
+    return {
+      tools,
+      groupedTools,
+      groupedMCPTools,
+      mcpServersMap,
+      toolToServerMap,
+    };
+  }, [pluginTools, agent_id, localize, startupConfig?.mcpServers, connectionStatus]);
+
+  console.log({ processedData });
 
   const { agentsConfig, endpointsConfig } = useGetAgentsConfig();
 
   const value: AgentPanelContextType = {
     mcp,
     mcps,
-    /** Query data for actions and tools */
-    tools,
     action,
     setMcp,
     actions,
@@ -102,12 +139,15 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     agent_id,
     setAction,
     activePanel,
-    groupedTools,
     agentsConfig,
     setActivePanel,
     endpointsConfig,
-    groupedMCPTools,
     setCurrentAgentId,
+    tools: processedData.tools,
+    groupedTools: processedData.groupedTools,
+    mcpServersMap: processedData.mcpServersMap,
+    toolToServerMap: processedData.toolToServerMap,
+    groupedMCPTools: processedData.groupedMCPTools,
   };
 
   return <AgentPanelContext.Provider value={value}>{children}</AgentPanelContext.Provider>;

@@ -17,13 +17,13 @@ import useAgentCapabilities from '~/hooks/Agents/useAgentCapabilities';
 import { useFileMapContext, useAgentPanelContext } from '~/Providers';
 import AgentCategorySelector from './AgentCategorySelector';
 import Action from '~/components/SidePanel/Builder/Action';
+import { useLocalize, useVisibleTools } from '~/hooks';
 import { useGetAgentFiles } from '~/data-provider';
 import { icons } from '~/hooks/Endpoint/Icons';
 import Instructions from './Instructions';
 import AgentAvatar from './AgentAvatar';
 import FileContext from './FileContext';
 import SearchForm from './Search/Form';
-import { useLocalize } from '~/hooks';
 import FileSearch from './FileSearch';
 import Artifacts from './Artifacts';
 import AgentTool from './AgentTool';
@@ -176,27 +176,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
     Icon = icons[iconKey];
   }
 
-  // Determine what to show
-  const selectedToolIds = tools ?? [];
-  const visibleToolIds = new Set(selectedToolIds);
-
-  // Check what group parent tools should be shown if any subtool is present
-  Object.entries(allTools ?? {}).forEach(([toolId, toolObj]) => {
-    if (toolObj.tools?.length) {
-      // if any subtool of this group is selected, ensure group parent tool rendered
-      if (toolObj.tools.some((st) => selectedToolIds.includes(st.tool_id))) {
-        visibleToolIds.add(toolId);
-      }
-    }
-  });
-
-  Object.entries(allMCPTools ?? {}).forEach(([toolId, toolObj]) => {
-    if (toolObj.tools?.length) {
-      if (toolObj.tools.some((st) => selectedToolIds.includes(st.tool_id))) {
-        visibleToolIds.add(toolId);
-      }
-    }
-  });
+  const visibleToolIds = useVisibleTools(tools, allTools, allMCPTools);
 
   return (
     <>
@@ -488,6 +468,8 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
         endpoint={EModelEndpoint.agents}
       />
       <MCPToolSelectDialog
+        formTools={tools}
+        agentId={agent_id}
         isOpen={showMCPToolDialog}
         setIsOpen={setShowMCPToolDialog}
         endpoint={EModelEndpoint.agents}
