@@ -70,7 +70,7 @@ function MCPToolSelectDialog({
         await initializeServer(serverName);
       }
 
-      const toolId = `${serverName}${Constants.mcp_delimiter}${serverName}`;
+      const toolId = `${Constants.mcp_all}${Constants.mcp_delimiter}${serverName}`;
 
       updateUserPlugins.mutate(
         {
