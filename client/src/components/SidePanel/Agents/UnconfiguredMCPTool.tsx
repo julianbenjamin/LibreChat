@@ -67,8 +67,6 @@ export default function UnconfiguredMCPTool({
     return null;
   }
 
-  const serverName = currentTool.metadata.name;
-
   return (
     <OGDialog>
       <div
