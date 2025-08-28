@@ -19,6 +19,7 @@ import { useMCPServerManager } from '~/hooks/MCP/useMCPServerManager';
 import AgentCategorySelector from './AgentCategorySelector';
 import Action from '~/components/SidePanel/Builder/Action';
 import UninitializedMCPTool from './UninitializedMCPTool';
+import UnconfiguredMCPTool from './UnconfiguredMCPTool';
 import { useGetStartupConfig } from '~/data-provider';
 import { useGetAgentFiles } from '~/data-provider';
 import { icons } from '~/hooks/Endpoint/Icons';
@@ -456,6 +457,43 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
               ];
             });
 
+          /** Servers that are saved in the agent but no longer are present in the YAML */
+          const unconfiguredMCPTools = Array.from(agentMCPServers)
+            .filter(
+              (serverName) =>
+                !configuredMCPServers.some(
+                  (configuredServer) => configuredServer.toLowerCase() === serverName,
+                ),
+            )
+            .map((serverName) => {
+              const serverTools =
+                tools
+                  ?.filter((tool) => tool.includes(`${Constants.mcp_delimiter}${serverName}`))
+                  .map((toolId) => ({
+                    tool_id: toolId,
+                    metadata: {
+                      name: toolId.split(Constants.mcp_delimiter)[0] || toolId,
+                      description: `MCP Tool: ${toolId}`,
+                    },
+                    agent_id: agent_id || '',
+                  })) || [];
+
+              return [
+                serverName,
+                {
+                  tool_id: serverName,
+                  metadata: {
+                    name: serverName,
+                    pluginKey: serverName,
+                    description: `MCP Server: ${serverName}`,
+                    icon: '',
+                  },
+                  agent_id: agent_id || '',
+                  tools: serverTools,
+                },
+              ];
+            });
+
           const allMCPToolsToShow = new Map();
 
           savedMCPTools.forEach(([toolId, toolObj]) => {
@@ -463,6 +501,10 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
           });
 
           fallbackMCPTools.forEach(([toolId, toolObj]) => {
+            allMCPToolsToShow.set(toolId, toolObj);
+          });
+
+          unconfiguredMCPTools.forEach(([toolId, toolObj]) => {
             allMCPToolsToShow.set(toolId, toolObj);
           });
 
@@ -490,6 +532,19 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
                     const serverName = toolObj?.metadata?.name;
                     const isConnected =
                       serverName && connectionStatus[serverName]?.connectionState === 'connected';
+
+                    // Check if this is an unconfigured server
+                    const isUnconfigured = unconfiguredMCPTools.some(([id]) => id === toolId);
+
+                    if (isUnconfigured) {
+                      return (
+                        <UnconfiguredMCPTool
+                          key={`${toolId as string}-${agent_id}`}
+                          tool={toolId as string}
+                          allTools={fallbackTools}
+                        />
+                      );
+                    }
 
                     if (isConnected) {
                       return (
