@@ -233,7 +233,6 @@ export type AgentPanelContextType = {
   setMcp: React.Dispatch<React.SetStateAction<t.MCP | undefined>>;
   setMcps: React.Dispatch<React.SetStateAction<t.MCP[] | undefined>>;
   groupedTools: Record<string, t.AgentToolType & { tools?: t.AgentToolType[] }>;
-  groupedMCPTools: Record<string, t.AgentToolType & { tools?: t.AgentToolType[] }>;
   tools: t.AgentToolType[];
   activePanel?: string;
   setActivePanel: React.Dispatch<React.SetStateAction<Panel>>;
@@ -243,8 +242,6 @@ export type AgentPanelContextType = {
   endpointsConfig?: t.TEndpointsConfig | null;
   /** Pre-computed MCP server information indexed by server key */
   mcpServersMap: Map<string, MCPServerInfo>;
-  /** Tool ID to server key mapping for O(1) lookups */
-  toolToServerMap: Map<string, string>;
 };
 
 export type AgentModelPanelProps = {

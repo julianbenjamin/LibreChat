@@ -49,10 +49,10 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
     actions,
     setAction,
     agentsConfig,
+    mcpServersMap,
     setActivePanel,
     endpointsConfig,
     groupedTools: allTools,
-    groupedMCPTools: allMCPTools,
   } = useAgentPanelContext();
 
   const {
@@ -176,7 +176,7 @@ export default function AgentConfig({ createMutation }: Pick<AgentPanelProps, 'c
     Icon = icons[iconKey];
   }
 
-  const { toolIds, mcpServerNames } = useVisibleTools(tools, allTools, allMCPTools);
+  const { toolIds, mcpServerNames } = useVisibleTools(tools, allTools, mcpServersMap);
 
   return (
     <>

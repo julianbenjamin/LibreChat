@@ -44,16 +44,13 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
       return {
         tools: [],
         groupedTools: {},
-        groupedMCPTools: {},
-        toolToServerMap: new Map<string, string>(),
         mcpServersMap: new Map<string, MCPServerInfo>(),
       };
     }
 
     const tools: AgentToolType[] = [];
     const groupedTools: GroupedToolsRecord = {};
-    const groupedMCPTools: GroupedToolsRecord = {};
-    const toolToServerMap = new Map<string, string>();
+
     const mcpServersMap = new Map<string, MCPServerInfo>();
 
     const configuredServers = new Set(
@@ -72,9 +69,6 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
       if (tool.tool_id.includes(Constants.mcp_delimiter)) {
         const [_toolName, serverName] = tool.tool_id.split(Constants.mcp_delimiter);
 
-        // Map tool to server for O(1) lookups
-        toolToServerMap.set(tool.tool_id, serverName);
-
         if (!mcpServersMap.has(serverName)) {
           const metadata = {
             name: serverName,
@@ -90,17 +84,9 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
             isConnected: connectionStatus[serverName]?.connectionState === 'connected',
             metadata,
           });
-
-          groupedMCPTools[serverName] = {
-            tool_id: serverName,
-            metadata,
-            agent_id: agent_id || '',
-            tools: [],
-          };
         }
 
         mcpServersMap.get(serverName)!.tools.push(tool);
-        groupedMCPTools[serverName].tools?.push(tool);
       } else {
         // Non-MCP tool
         groupedTools[tool.tool_id] = {
@@ -114,9 +100,7 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     return {
       tools,
       groupedTools,
-      groupedMCPTools,
       mcpServersMap,
-      toolToServerMap,
     };
   }, [pluginTools, agent_id, localize, startupConfig?.mcpServers, connectionStatus]);
 
@@ -139,8 +123,6 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     tools: processedData.tools,
     groupedTools: processedData.groupedTools,
     mcpServersMap: processedData.mcpServersMap,
-    toolToServerMap: processedData.toolToServerMap,
-    groupedMCPTools: processedData.groupedMCPTools,
   };
 
   return <AgentPanelContext.Provider value={value}>{children}</AgentPanelContext.Provider>;

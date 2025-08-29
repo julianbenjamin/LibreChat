@@ -16,7 +16,7 @@ export default function MCPTools({
 }) {
   const localize = useLocalize();
   const methods = useFormContext<AgentForm>();
-  const { groupedMCPTools: allMCPTools, mcpServersMap } = useAgentPanelContext();
+  const { mcpServersMap } = useAgentPanelContext();
 
   const { control } = methods;
   const agent_id = useWatch({ control, name: 'id' });
@@ -29,49 +29,31 @@ export default function MCPTools({
       <div>
         <div className="mb-1">
           {/* Render servers with selected tools */}
-          {mcpServerNames?.map((formTool) => {
-            const serverInfo = mcpServersMap.get(formTool);
+          {mcpServerNames?.map((mcpServerName) => {
+            const serverInfo = mcpServersMap.get(mcpServerName);
             if (!serverInfo) {
               return null;
             }
-            const fallbackTools = allMCPTools?.[serverInfo.serverName]
-              ? allMCPTools
-              : {
-                  ...allMCPTools,
-                  [serverInfo.serverName]: {
-                    tool_id: serverInfo.serverName,
-                    metadata: serverInfo.metadata,
-                    agent_id: agent_id || '',
-                    tools: serverInfo.tools,
-                  },
-                };
 
             if (!serverInfo.isConfigured) {
               return (
                 <UnconfiguredMCPTool
                   key={`${serverInfo.serverName}-${agent_id}`}
-                  tool={serverInfo.serverName}
-                  allTools={fallbackTools}
+                  serverInfo={serverInfo}
                 />
               );
             }
 
             if (serverInfo.isConnected) {
               return (
-                <MCPTool
-                  key={`${serverInfo.serverName}-${agent_id}`}
-                  tool={serverInfo.serverName}
-                  allTools={fallbackTools}
-                  agent_id={agent_id}
-                />
+                <MCPTool key={`${serverInfo.serverName}-${agent_id}`} serverInfo={serverInfo} />
               );
             }
 
             return (
               <UninitializedMCPTool
                 key={`${serverInfo.serverName}-${agent_id}`}
-                tool={serverInfo.serverName}
-                allTools={fallbackTools}
+                serverInfo={serverInfo}
               />
             );
           })}

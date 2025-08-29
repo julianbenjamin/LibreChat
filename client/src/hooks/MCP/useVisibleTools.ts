@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { AgentToolType } from 'librechat-data-provider';
+import type { MCPServerInfo } from '~/common';
 
 type GroupedToolType = AgentToolType & { tools?: AgentToolType[] };
 type GroupedToolsRecord = Record<string, GroupedToolType>;
@@ -15,13 +16,13 @@ interface VisibleToolsResult {
  *
  * @param selectedToolIds - Array of selected tool IDs
  * @param allTools - Record of all available tools
- * @param allMCPTools - Record of all MCP tools
+ * @param mcpServersMap - Map of all MCP servers
  * @returns Object containing separate arrays of visible tool IDs for regular and MCP tools
  */
 export function useVisibleTools(
   selectedToolIds: string[] | undefined,
   allTools: GroupedToolsRecord | undefined,
-  allMCPTools: GroupedToolsRecord | undefined,
+  mcpServersMap: Map<string, MCPServerInfo>,
 ): VisibleToolsResult {
   return useMemo(() => {
     const toolIds = selectedToolIds ?? [];
@@ -47,17 +48,17 @@ export function useVisibleTools(
       }
     }
 
-    if (allMCPTools) {
-      for (const [toolId, toolObj] of Object.entries(allMCPTools)) {
-        if (toolIds.includes(toolId)) {
-          mcpServers.add(toolId);
+    if (mcpServersMap) {
+      for (const [mcpServerName, mcpServerInfo] of mcpServersMap) {
+        if (toolIds.includes(mcpServerName)) {
+          mcpServers.add(mcpServerName);
         }
 
         // Check if any subtool is selected
-        if (toolObj.tools?.length) {
-          for (const subtool of toolObj.tools) {
+        if (mcpServerInfo.tools?.length) {
+          for (const subtool of mcpServerInfo.tools) {
             if (toolIds.includes(subtool.tool_id)) {
-              mcpServers.add(toolId);
+              mcpServers.add(mcpServerName);
               break;
             }
           }
@@ -69,5 +70,5 @@ export function useVisibleTools(
       toolIds: Array.from(regularToolIds),
       mcpServerNames: Array.from(mcpServers),
     };
-  }, [selectedToolIds, allTools, allMCPTools]);
+  }, [selectedToolIds, allTools, mcpServersMap]);
 }
